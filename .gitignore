@@ -1,0 +1,6 @@
+.idea/
+/docker_cluster_controller.egg-info
+/dist
+/build
+__pycache__
+.DS_Store
