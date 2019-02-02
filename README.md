@@ -36,7 +36,7 @@ pip install docker-cluster-controller
 ## Usage:
 
 1. Build a container with a docker-entrypoint using the clustercontroller. See the docker-entrypoint.py as and example implementation.
-1. Start a ETCD node
+1. Start a ETCD Cluster, see [docker-service-discovery]
 2. In the docker-compose file set environment variables so the clustercontroller knows where and how to register
 
 |Environment Variable |Description |
@@ -47,3 +47,6 @@ pip install docker-cluster-controller
 |ENVIRONMENT: | A single ETCD node can be used for multimple environments, therefore the environment has to be specified. E.g. development'|
 |SERVICE: |The name of the service |
 
+
+
+[docker-service-discovery]: https://github.com/erikdewildt/docker-service-discovery
