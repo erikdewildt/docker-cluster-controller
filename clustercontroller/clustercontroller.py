@@ -50,21 +50,26 @@ def create_logger(name=None, logger=None):
     return logger
 
 
-def render_config(template_file=None, config_file=None, variables=None):
+def render_config(template_file=None, config_file=None, variables={}, template_location='/tmp'):
     """
     Render a configuration file from a template using variables.
 
+    :param template_location: The location to find the template
     :param template_file: The template file to be used.
     :param config_file: The config file used as output.
     :param variables: A dictionary of variables to use in the template.
     :return: None
     """
+
+    if type(variables) is not dict:
+        raise Exception("Attribute 'variables' should be a dictionary.")
+
     # Get variables, cast 'list items' to a list.
     for key, value in variables.items():
         if ',' in value:
             variables[key] = value.split(',')
 
-    template = Environment(loader=FileSystemLoader('/tmp')).get_template(template_file)
+    template = Environment(loader=FileSystemLoader(template_location)).get_template(template_file)
     with open(config_file, 'w') as output_file:
         output_file.write(template.render(**variables))
         output_file.close()
