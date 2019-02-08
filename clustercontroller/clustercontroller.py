@@ -50,7 +50,7 @@ def create_logger(name=None, logger=None):
     return logger
 
 
-def render_config(template_file=None, config_file=None, variables=None):
+def render_config(template_file=None, config_file=None, variables={}):
     """
     Render a configuration file from a template using variables.
 
@@ -59,6 +59,10 @@ def render_config(template_file=None, config_file=None, variables=None):
     :param variables: A dictionary of variables to use in the template.
     :return: None
     """
+
+    if type(variables) is not dict:
+        raise Exception("Attribute 'variables' should be a dictionary.")
+    
     # Get variables, cast 'list items' to a list.
     for key, value in variables.items():
         if ',' in value:
