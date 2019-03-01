@@ -3,6 +3,7 @@
 import logging
 import multiprocessing
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -75,13 +76,15 @@ def render_config(template_file=None, config_file=None, variables={}, template_l
         output_file.close()
 
 
-def run_system_process(command=None, terminate_event=None, name=multiprocessing.current_process().name):
+def run_system_process(command=None, terminate_event=None, name=multiprocessing.current_process().name,
+                       suppress_log_regexp=None):
     """
     Start a OS process.
 
     :param command: Command array.
     :param terminate_event: The terminate event to subscribe.
     :param name: The name of the process.
+    :param suppress_log_regexp: A regular expression to exclude log messages from being logged.
     :return: None
     """
     process = None
@@ -91,7 +94,7 @@ def run_system_process(command=None, terminate_event=None, name=multiprocessing.
     try:
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except FileNotFoundError as error:
-        logger.warning(f'Error during startup of {name}: {error}', exc_info=True, extra={'stack': True, })
+        logger.warning(f'Error during startup of {name}: {error}', extra={'stack': True, })
 
     if process:
         # While process is active
@@ -100,10 +103,12 @@ def run_system_process(command=None, terminate_event=None, name=multiprocessing.
 
             # Logging
             for line in process.stdout:
-                logger.info(line.rstrip().decode('utf-8'))
+                if suppress_log_regexp and not re.search(suppress_log_regexp, line) or not suppress_log_regexp:
+                    logger.info(line.rstrip().decode('utf-8'))
 
             for line in process.stderr:
-                logger.error(line.rstrip().decode('utf-8'))
+                if suppress_log_regexp and not re.search(suppress_log_regexp, line) or not suppress_log_regexp:
+                    logger.error(line.rstrip().decode('utf-8'))
 
             if terminate_event and terminate_event.is_set():
                 process.terminate()
@@ -129,7 +134,7 @@ def terminate_all_processes(processes=None, terminate_event=None, logger=None):
     """
     # Set the terminate event to end the processes gracefully
     terminate_event.set()
-    logging.info('Terminate signal send, waiting for processes to clean-up')
+    logging.info('Terminate signal send, waiting for processes to clean-up', extra={'stack': True, })
 
     # Give process the time to terminate gracefully before being terminated forcefully
     sleep(10)
@@ -142,7 +147,7 @@ def terminate_all_processes(processes=None, terminate_event=None, logger=None):
     return True
 
 
-def start_process(command=None, name=None, terminate_event=None):
+def start_process(command=None, name=None, terminate_event=None, suppress_log_regexp=None):
     """
     Start a system process in multiprocessing mode.
 
@@ -151,7 +156,8 @@ def start_process(command=None, name=None, terminate_event=None):
     :param terminate_event: The terminate event which this process should act upon.
     :return: The process which was started
     """
-    process = multiprocessing.Process(name=name, target=run_system_process, args=(command, terminate_event, name))
+    process = multiprocessing.Process(name=name, target=run_system_process,
+                                      args=(command, terminate_event, name, suppress_log_regexp))
     process.start()
     return process
 
@@ -243,10 +249,11 @@ class ClusterController:
     logger = None
     schedule = schedule
     etcd_client = None
+    etcd_error_timestamp = None
     terminate_event = None
     cluster_controller_started_event = None
 
-    # Sate / ID variables
+    # State / ID variables
     container = None
     instance_id = None
     role = None
@@ -283,19 +290,20 @@ class ClusterController:
             try:
                 self.etcd_port = int(self.etcd_port)
             except ValueError:
-                self.logger.error(f'ETCD Port should be a valid integer value.')
+                self.logger.error(f'ETCD Port should be a valid integer value.', extra={'stack': True, })
                 self.state = 'stopping'
 
         if not isinstance(self.etcd_host, str) or not isinstance(self.etcd_port, int):
-            self.logger.error(f'No valid ETCD host and/or port specified: {self.etcd_host}:{self.etcd_port}')
+            self.logger.error(f'No valid ETCD host and/or port specified: {self.etcd_host}:{self.etcd_port}',
+                              extra={'stack': True, })
             self.state = 'stopping'
 
         if not self.environment or not self.service:
-            self.logger.error('Environment and/or service is not set.')
+            self.logger.error('Environment and/or service is not set.', extra={'stack': True, })
             self.state = 'stopping'
 
         if self.state == 'stopping':
-            self.terminate_controller()
+            self.terminate_controller(exitcode=0)
 
         # Connect to ETCD
         connected = False
@@ -304,7 +312,7 @@ class ClusterController:
         attempt = 0
         while not connected and time() < timeout:
             attempt += 1
-            self.logger.info(f'Trying to connect to ETCD, attempt: {attempt}')
+            self.logger.info(f'Trying to connect to ETCD, attempt: {attempt}', extra={'stack': True, })
             try:
                 self.etcd_client = etcd.Client(host=self.etcd_host, port=int(self.etcd_port), allow_reconnect=True)
                 machines = self.etcd_client.machines
@@ -369,7 +377,17 @@ class ClusterController:
             self.check_active(ports=self.ports)
 
             if self.state in ('running', 'active'):
-                self.refresh_role()
+
+                refreshed = False
+                timeout = time() + 30
+
+                while not refreshed and time() < timeout:
+                    refreshed = self.refresh_role()
+                    sleep(1)
+
+                if not refreshed:
+                    self.state = 'stopping'
+                    self.terminate_controller(exitcode=1)
 
                 # Check for added members.
                 added_members = set(self.get_members(state='active')) - set(self.cluster_members)
@@ -400,6 +418,7 @@ class ClusterController:
         """
         Terminate the controller.
 
+
         :return:
         """
         self.logger.info('Terminating Cluster Controller', extra={'stack': True, })
@@ -409,7 +428,7 @@ class ClusterController:
             # Clean up stuff before exiting...
             try:
                 if self.release_master_lock():
-                    self.logger.info("Master Lock released")
+                    self.logger.info('Master Lock released', extra={'stack': True, })
 
                 if self.etcd_client and self.etcd_client.delete(self.member_dir, recursive=True):
                     self.logger.info('Member removed from ETCD.', extra={'stack': True, })
@@ -421,7 +440,7 @@ class ClusterController:
             self.logger.info('Cluster Controller Terminated.', extra={'stack': True, })
             sys.exit(exitcode)
         else:
-            self.logger.info('Terminate Controller called while state not in stopping state.')
+            self.logger.info('Terminate Controller called while state not in stopping state.', extra={'stack': True, })
 
     def acquire_master_lock(self):
         """
@@ -431,19 +450,23 @@ class ClusterController:
         """
         old_role = self.role
 
-        if self.master_lock.acquire(blocking=False, lock_ttl=30):
-            self.role = 'master'
-            self.etcd_client.write(self.master_key, self.instance_id, ttl=30)
+        try:
+            if self.master_lock.acquire(blocking=False, lock_ttl=30):
+                self.role = 'master'
+                self.etcd_client.write(self.master_key, self.instance_id, ttl=30)
 
-            if old_role == 'slave':
-                self.transition_slave_to_master()
+                if old_role == 'slave':
+                    self.transition_slave_to_master()
 
-            if old_role != 'master':
-                self.etcd_client.write(self.member_role_key, self.role, ttl=30)
-                self.logger.info(f'Instance {self.instance_id} on Container {self.container} became {self.role}',
-                                 extra={'stack': True, })
+                if old_role != 'master':
+                    self.etcd_client.write(self.member_role_key, self.role, ttl=30)
+                    self.logger.info(f'Instance {self.instance_id} on Container {self.container} became {self.role}',
+                                     extra={'stack': True, })
 
-            return True
+                return True
+        except etcd.EtcdException as error:
+            self.logger.warning(f'Error while trying to require master lock: {error}',
+                                extra={'stack': True, })
 
         self.role = 'slave'
 
@@ -482,34 +505,57 @@ class ClusterController:
         :return: None
         """
         # Refresh ETCD registration
+        etcd_connection_failed = False
+
         try:
             self.etcd_client.refresh(self.member_state_key, ttl=10)
         except etcd.EtcdKeyNotFound:
             self.etcd_client.write(self.member_state_key, self.state, ttl=10)
+        except etcd.EtcdConnectionFailed:
+            etcd_connection_failed = True
+            self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         try:
             self.etcd_client.refresh(self.member_role_key, ttl=10)
         except etcd.EtcdKeyNotFound:
             self.etcd_client.write(self.member_role_key, self.role, ttl=10)
+        except etcd.EtcdConnectionFailed:
+            etcd_connection_failed = True
+            self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         try:
             self.etcd_client.refresh(self.member_container_key, ttl=10)
         except etcd.EtcdKeyNotFound:
             self.etcd_client.write(self.member_container_key, self.container, ttl=10)
+        except etcd.EtcdConnectionFailed:
+            etcd_connection_failed = True
+            self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         # Refresh master lock
         if self.role == 'master':
             # If we are master, just refresh the master lock and key
-            self.master_lock.acquire(blocking=False, lock_ttl=10)
+            try:
+                self.master_lock.acquire(blocking=False, lock_ttl=10)
+            except etcd.EtcdConnectionFailed:
+                etcd_connection_failed = True
+                self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
             try:
                 self.etcd_client.refresh(self.master_key, ttl=10)
             except etcd.EtcdKeyNotFound:
                 self.etcd_client.write(self.master_key, self.container, ttl=10)
+            except etcd.EtcdConnectionFailed:
+                etcd_connection_failed = True
+                self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         elif self.role == 'slave':
             # If we are slave, try to promote to master (in case master has gone away)
             self.acquire_master_lock()
+
+        if etcd_connection_failed:
+            return False
+
+        return True
 
     def get_members(self, environment=None, service=None, state=None, role=None):
         """
@@ -538,7 +584,9 @@ class ClusterController:
         try:
             directory = self.etcd_client.get(members_dir)
         except etcd.EtcdKeyNotFound as error:
-            self.logger.debug(f'Member dir not found: {error}')
+            self.logger.debug(f'Member dir not found: {error}', extra={'stack': True, })
+        except etcd.EtcdException:
+            self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         if directory:
             for result in directory.children:
@@ -562,7 +610,8 @@ class ClusterController:
                                     members.append(instance)
 
                         except etcd.EtcdKeyNotFound as error:
-                            self.logger.debug(f'Member dir found with no state key: {error}', extra={'stack': True, })
+                            self.logger.debug(f'Member dir found with no state key: {error}',
+                                              extra={'stack': True, })
                     else:
                         members.append(instance)
 
@@ -583,7 +632,7 @@ class ClusterController:
             container = self.etcd_client.get(member_key).value
 
         except etcd.EtcdKeyNotFound as error:
-            self.logger.info(f"Key can't be found {error}", exc_info=True, extra={'stack': True, })
+            self.logger.info(f"Key can't be found {error}", extra={'stack': True, })
 
         return container
 
@@ -602,7 +651,8 @@ class ClusterController:
                 try:
                     socket.create_connection(address=('127.0.0.1', int(port)), timeout=5)
                 except socket.error as error:
-                    self.logger.info(f'Connection to port {port} failed: {error}', extra={'stack': True, })
+                    self.logger.info(f'Connection to port {port} failed: {error}',
+                                     extra={'stack': True, })
                     active = False
                     break
 
@@ -621,7 +671,11 @@ class ClusterController:
             self.state = 'stopping'
             self.terminate_controller(exitcode=1)
 
-        self.etcd_client.write(self.member_state_key, self.state, ttl=30)
+        try:
+            self.etcd_client.write(self.member_state_key, self.state, ttl=30)
+        except etcd.EtcdException:
+            self.logger.error('Could not update state, connection to ETCD failed.',
+                              extra={'stack': True, })
 
     def wait_for_service(self, service=None, timeout=60):
         """
@@ -641,7 +695,8 @@ class ClusterController:
                                               role='master')
 
             if time() > timeout:
-                self.logger.warning(f'Timeout reached while waiting for service {service} to become active.')
+                self.logger.warning(f'Timeout reached while waiting for service {service} to become active.',
+                                    extra={'stack': True, })
                 return False
 
             sleep(1)

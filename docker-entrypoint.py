@@ -70,7 +70,7 @@ class MyAppController(ClusterController):
         """Called when members where removed from the cluster."""
         self.logger.info(f'MyAppController removed members: {removed_members}')
 
-    def terminate_controller(self):
+    def terminate_controller(self, exitcode=0):
         """Called when the instance is being terminated."""
         self.logger.info('MyAppController was terminated')
         super().terminate_controller()
@@ -94,6 +94,8 @@ if __name__ == '__main__':
 
     command = ['/opt/myapp/current/bin/myapp', '--foreground', '--cd', '/var/opt/myapp', '--heart',
                '-c', '/etc/myapp/myapp.conf', '--with-package-reload']
+
+    command = ['tail', '-f', '/var/log/system.log', '>2']
 
 
     # Initialise the global processes list used to monitor active processes.
@@ -150,7 +152,8 @@ if __name__ == '__main__':
 
         if not timeout_reached:
             # Start the NCS process
-            process = start_process(command=command, name='myapp', terminate_event=terminate_event)
+            process = start_process(command=command, name='myapp', terminate_event=terminate_event,
+                                    suppress_log_regexp=str(os.environ.get('SUPPRESS_LOG_REGEXP')).encode('utf-8'))
             processes.append((process, process.name))
 
     # Monitor processes, this will cause the container to stay active until one of the processes stops.
