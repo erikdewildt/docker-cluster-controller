@@ -403,7 +403,6 @@ class ClusterController:
 
                 while not refreshed and time() < timeout:
                     refreshed = self.refresh_role()
-                    self.logger.info('refreshed role')
                     sleep(1)
 
                 if not refreshed:

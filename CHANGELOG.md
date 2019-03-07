@@ -1,5 +1,10 @@
 # Changelog
 
+
+## 0.1.4 - 2019-03-7
+
+* Bug: Removed debug logging
+
 ## 0.1.3 - 2019-03-7
 
 * Feature: Run scheduled jobs in a separate thread
