@@ -7,6 +7,7 @@ import re
 import socket
 import subprocess
 import sys
+import threading
 import uuid
 from time import sleep, time
 
@@ -212,6 +213,8 @@ def monitor_processes(processes=None, terminate_event=None):
                 terminate_all_processes(processes=processes, terminate_event=terminate_event, logger=logger)
 
 
+
+
 class ClusterController:
     """
     Base class for a cluster controller.
@@ -252,6 +255,7 @@ class ClusterController:
     etcd_error_timestamp = None
     terminate_event = None
     cluster_controller_started_event = None
+    terminate_schedule_event = None
 
     # State / ID variables
     container = None
@@ -358,7 +362,23 @@ class ClusterController:
             self.etcd_client.write(self.member_container_key, self.container, ttl=60)
 
             # Start the run loop
+            self.terminate_schedule_event = self.run_schedule_continously(schedule=schedule, interval=1)
             self.run()
+
+    def run_schedule_continously(self, schedule=None, interval=1):
+
+        terminate_schedule_event = threading.Event()
+
+        class ScheduleThread(threading.Thread):
+            @classmethod
+            def run(cls):
+                while not terminate_schedule_event.is_set():
+                    schedule.run_pending()
+                    sleep(interval)
+
+        continuous_thread = ScheduleThread()
+        continuous_thread.start()
+        return terminate_schedule_event
 
     def run(self):
         """
@@ -373,7 +393,7 @@ class ClusterController:
 
         while True:
             # Run scheduled jobs
-            self.schedule.run_pending()  # ToDo: Run this in a subprocess so any scheduled actions are not blocking
+            # self.schedule.run_pending()  # ToDo: Run this in a subprocess so any scheduled actions are not blocking
             self.check_active(ports=self.ports)
 
             if self.state in ('running', 'active'):
@@ -383,6 +403,7 @@ class ClusterController:
 
                 while not refreshed and time() < timeout:
                     refreshed = self.refresh_role()
+                    self.logger.info('refreshed role')
                     sleep(1)
 
                 if not refreshed:
@@ -435,6 +456,7 @@ class ClusterController:
             except etcd.EtcdException:
                 pass
 
+            self.terminate_schedule_event.set()
             self.terminate_event.set()
             self.state = 'terminated'
             self.logger.info('Cluster Controller Terminated.', extra={'stack': True, })

@@ -47,6 +47,22 @@ pip install docker-cluster-controller
 |ENVIRONMENT: | A single ETCD node can be used for multimple environments, therefore the environment has to be specified. E.g. development'|
 |SERVICE: |The name of the service |
 
+## Backup:
 
+To use the rotating backup functionality some environemnt variables have to be set:
+
+|Environment Variable |Description |
+|---------------------|------------|
+|BACKUP_HOURS_TO_KEEP=24 |The number of hourly backups to keep |
+|BACKUP_DAYS_TO_KEEP=14 |The number of daily backups to keep |
+|BACKUP_WEEKS_TO_KEEP=4 |The number of weekly backups to keep |
+|BACKUP_MONTHS_TO_KEEP=3 |The number of monthly backups to keep |
+|BACKUP_DESTINATION_FOLDER=backup |The backup destination folder |
+
+Within a scheduled method the backup can be called:
+
+```python
+    run_backup(name='myapp_backup', command=['backup_command', '-x', 'some_option', '-y', 'some_other_option'])
+```
 
 [docker-service-discovery]: https://github.com/erikdewildt/docker-service-discovery

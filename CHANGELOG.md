@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 - 2019-03-7
+
+* Feature: Run scheduled jobs in a separate thread
+* Feature: Rotating backup functionality
+
 ## 0.1.2 - 2019-03-1
 
 * Bug: Fix bug when ETCD can not be reached

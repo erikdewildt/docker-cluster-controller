@@ -2,6 +2,7 @@
 /docker_cluster_controller.egg-info
 /dist
 /build
+/backup
 __pycache__
 .DS_Store
-/todo.txt
+set_env.sh

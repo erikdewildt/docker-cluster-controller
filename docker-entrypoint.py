@@ -15,6 +15,7 @@ from time import sleep, time
 
 import sys
 
+from clustercontroller.backup import run_backup
 from clustercontroller.clustercontroller import ClusterController, start_process, run_system_process, \
     start_cluster_controller, monitor_processes, render_config, create_logger
 
@@ -82,7 +83,8 @@ class MyAppController(ClusterController):
     def run_every_hour(self):
         """Run every hour."""
         self.logger.info('MyAppController hourly job started')
-        start_process(command=['/opt/myapp/current/bin/myapp-backup', '--non-interactive'], name='backup_myapp')
+        timestamp = int(round(time() * 1000))
+        run_backup(name='myapp_backup', command=['bash', '-c', f'sleep 60 && touch "backup/backup_{timestamp}.tar.gz"'])
 
 
 if __name__ == '__main__':
