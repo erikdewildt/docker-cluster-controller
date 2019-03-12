@@ -369,6 +369,9 @@ class ClusterController:
             self.etcd_client.write(self.member_role_key, self.role, ttl=60)
             self.etcd_client.write(self.member_container_key, self.container, ttl=60)
 
+            # Keep the main process alive while the terminate event is not set.
+            while not self.terminate_event.is_set():
+                sleep(1)
 
     def run_schedule_continously(self, schedule=None, interval=1):
 
