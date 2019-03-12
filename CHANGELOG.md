@@ -1,5 +1,10 @@
 # Changelog
 
+
+## 0.1.7 - 2019-03-12
+
+* Bug: Run check_active from main loop
+
 ## 0.1.6 - 2019-03-12
 
 * Bug: Keep main process alive while terminate event is not set.

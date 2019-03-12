@@ -371,6 +371,7 @@ class ClusterController:
 
             # Keep the main process alive while the terminate event is not set.
             while not self.terminate_event.is_set():
+                self.check_active(ports=self.ports)
                 sleep(1)
 
     def run_schedule_continously(self, schedule=None, interval=1):
@@ -405,8 +406,6 @@ class ClusterController:
             @classmethod
             def run(cls):
                 while not terminate_run_event.is_set():
-
-                    self.check_active(ports=self.ports)
 
                     if self.state in ('running', 'active'):
 
