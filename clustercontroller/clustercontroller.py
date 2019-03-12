@@ -256,6 +256,7 @@ class ClusterController:
     terminate_event = None
     cluster_controller_started_event = None
     terminate_schedule_event = None
+    terminate_run_event = None
 
     # State / ID variables
     container = None
@@ -345,13 +346,20 @@ class ClusterController:
 
             self.master_lock = etcd.Lock(self.etcd_client, self.lock_name)
 
-            # Run start to include a child class startup logic and raise the init event when finished.
-            self.start()
-
-            self.cluster_controller_started_event.set()
+            # Start the schedule thread
+            self.terminate_schedule_event = self.run_schedule_continously(schedule=schedule, interval=1)
 
             # Try to acquire the mater lock.
-            if self.acquire_master_lock():
+            master = self.acquire_master_lock()
+
+            # Start the run loop
+            self.terminate_run_event = self.run()
+
+            # Run start to include a child class startup logic and raise the init event when finished.
+            self.start()
+            self.cluster_controller_started_event.set()
+
+            if master:
                 self.started_as_master()
             else:
                 self.started_as_slave()
@@ -361,9 +369,6 @@ class ClusterController:
             self.etcd_client.write(self.member_role_key, self.role, ttl=60)
             self.etcd_client.write(self.member_container_key, self.container, ttl=60)
 
-            # Start the run loop
-            self.terminate_schedule_event = self.run_schedule_continously(schedule=schedule, interval=1)
-            self.run()
 
     def run_schedule_continously(self, schedule=None, interval=1):
 
@@ -388,51 +393,60 @@ class ClusterController:
 
         :return: None
         """
-        self.logger.info("Run")
+        self.logger.info("Run Loop Started.")
         self.state = 'running'
 
-        while True:
-            # Run scheduled jobs
-            # self.schedule.run_pending()  # ToDo: Run this in a subprocess so any scheduled actions are not blocking
-            self.check_active(ports=self.ports)
+        terminate_run_event = threading.Event()
 
-            if self.state in ('running', 'active'):
+        class RunThread(threading.Thread):
+            @classmethod
+            def run(cls):
+                while not terminate_run_event.is_set():
 
-                refreshed = False
-                timeout = time() + 30
+                    self.check_active(ports=self.ports)
 
-                while not refreshed and time() < timeout:
-                    refreshed = self.refresh_role()
+                    if self.state in ('running', 'active'):
+
+                        refreshed = False
+                        timeout = time() + 30
+
+                        while not refreshed and time() < timeout:
+                            refreshed = self.refresh_role()
+                            sleep(1)
+
+                        if not refreshed:
+                            self.state = 'stopping'
+                            self.terminate_controller(exitcode=1)
+
+                        # Check for added members.
+                        added_members = set(self.get_members(state='active')) - set(self.cluster_members)
+                        if added_members:
+                            self.logger.info(f'Found new members: {added_members}', extra={'stack': True, })
+                            self.cluster_members_added(added_members=list(added_members))
+
+                        # Check for removed members.
+                        removed_members = set(self.cluster_members) - set(self.get_members(state='active'))
+                        if removed_members:
+                            self.logger.info(f'Removed members: {removed_members}', extra={'stack': True, })
+                            self.cluster_members_removed(removed_members=list(removed_members))
+
+                        # Display list of members when there was a change.
+                        if added_members or removed_members:
+                            self.cluster_members = self.get_members(state='active')
+                            self.logger.info(f'Members: {self.cluster_members}', extra={'stack': True, })
+
+                    # When the terminate event is set, terminate the controller.
+                    if self.terminate_event.is_set():
+                        self.logger.info('Stopping Cluster Controller', extra={'stack': True, })
+                        self.state = 'stopping'
+                        self.terminate_controller(exitcode=0)
+                        sys.exit(0)
+
                     sleep(1)
 
-                if not refreshed:
-                    self.state = 'stopping'
-                    self.terminate_controller(exitcode=1)
-
-                # Check for added members.
-                added_members = set(self.get_members(state='active')) - set(self.cluster_members)
-                if added_members:
-                    self.logger.info(f'Found new members: {added_members}', extra={'stack': True, })
-                    self.cluster_members_added(added_members=list(added_members))
-
-                # Check for removed members.
-                removed_members = set(self.cluster_members) - set(self.get_members(state='active'))
-                if removed_members:
-                    self.logger.info(f'Removed members: {removed_members}', extra={'stack': True, })
-                    self.cluster_members_removed(removed_members=list(removed_members))
-
-                # Display list of members when there was a change.
-                if added_members or removed_members:
-                    self.cluster_members = self.get_members(state='active')
-                    self.logger.info(f'Members: {self.cluster_members}', extra={'stack': True, })
-
-            # When the terminate event is set, terminate the controller.
-            if self.terminate_event.is_set():
-                self.logger.info('Stopping Cluster Controller', extra={'stack': True, })
-                self.state = 'stopping'
-                self.terminate_controller(exitcode=0)
-
-            sleep(1)
+        continuous_thread = RunThread()
+        continuous_thread.start()
+        return terminate_run_event
 
     def terminate_controller(self, exitcode=0):
         """
@@ -456,7 +470,9 @@ class ClusterController:
                 pass
 
             self.terminate_schedule_event.set()
+            self.terminate_run_event.set()
             self.terminate_event.set()
+
             self.state = 'terminated'
             self.logger.info('Cluster Controller Terminated.', extra={'stack': True, })
             sys.exit(exitcode)
@@ -633,6 +649,8 @@ class ClusterController:
                         except etcd.EtcdKeyNotFound as error:
                             self.logger.debug(f'Member dir found with no state key: {error}',
                                               extra={'stack': True, })
+                        except etcd.EtcdException:
+                            self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
                     else:
                         members.append(instance)
 

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.5 - 2019-03-12
+
+* Feature: Run loop as thread so blocking actions in the controller do not influence refreshing of ETCD keys.
 
 ## 0.1.4 - 2019-03-7
 
