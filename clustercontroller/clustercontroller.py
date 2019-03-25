@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import uuid
+from pathlib import Path
 from time import sleep, time
 
 from raven import Client
@@ -257,6 +258,7 @@ class ClusterController:
     cluster_controller_started_event = None
     terminate_schedule_event = None
     terminate_run_event = None
+    filesystem_locks = None
 
     # State / ID variables
     container = None
@@ -436,6 +438,11 @@ class ClusterController:
                         if added_members or removed_members:
                             self.cluster_members = self.get_members(state='active')
                             self.logger.info(f'Members: {self.cluster_members}', extra={'stack': True, })
+
+                        # Handle filesystem locks
+                        if self.filesystem_locks:
+                            for folder in self.filesystem_locks:
+                                self.get_filesystem_lock(folder)
 
                     # When the terminate event is set, terminate the controller.
                     if self.terminate_event.is_set():
@@ -744,6 +751,46 @@ class ClusterController:
 
         self.logger.info(f'Service {service} became active.')
         return True
+
+    def get_filesystem_lock(self, path):
+        """
+        Try to get a system lock file.
+
+        If the lockfile is from the current container the timestamp is refreshed.
+        If the lockfile is from an other container but the timestamp is to old, the lockfile is removed and a new
+        lockfile for the current container is created.
+
+        :param path: The path for which a lock is required.
+        :return: True when the lock is owned by the current container, False when not.
+        """
+        write_new_lockfile = False
+        lock_container = False
+
+        lockfile_path = Path(str(path).rstrip('/') + '/lock')
+        current_timestamp = int(round(time() * 1000))
+
+        if lockfile_path.is_file():
+            with open(lockfile_path, 'r') as lockfile:
+                lock_content = lockfile.read()
+                lock_container = lock_content.split(':')[0]
+                lock_timestamp = int(lock_content.split(':')[1])
+
+                if lock_container == self.container and lock_timestamp + 10000 <= current_timestamp or \
+                        lock_content != self.container and lock_timestamp + 30000 < current_timestamp:
+                    write_new_lockfile = True
+        else:
+            write_new_lockfile = True
+
+        if write_new_lockfile:
+            with open(lockfile_path, 'w') as lockfile:
+                lock_content = f'{self.container}:{current_timestamp}'
+                lockfile.write(lock_content)
+                self.logger.debug(f'Wrote lockfile {lockfile_path}')
+
+        if lock_container == self.container:
+            return True
+        else:
+            return False
 
     def start(self):
         """

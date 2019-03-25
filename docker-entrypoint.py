@@ -40,6 +40,9 @@ class MyAppController(ClusterController):
         # Schedule time based jobs
         self.schedule.every(1).hour.do(self.run_every_hour)
         variables = dict(os.environ)
+
+        self.filesystem_locks= ('backup', )
+
         try:
             render_config(template_file='myapp.conf.j2', config_file='/etc/myapp/myapp.conf', variables=variables)
             render_config(template_file='aaa_init.xml', config_file='/var/opt/myapp/aaa_init.xml',

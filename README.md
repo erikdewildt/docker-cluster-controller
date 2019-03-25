@@ -65,4 +65,21 @@ Within a scheduled method the backup can be called:
     run_backup(name='myapp_backup', command=['backup_command', '-x', 'some_option', '-y', 'some_other_option'])
 ```
 
+
+## Filesystem locks
+
+When starting the controller a tuple with some file system paths can be specified. The controller then make sures a
+lockfile is created for the current container in the path(s) specified.
+
+```python
+    self.filesystem_locks= ('backup', )
+```
+
+The 'get_filesystem_lock' method will return True if the current container has a lock for the path or False if another
+container has a lock in place.
+
+```python
+    self.get_filesystem_lock('backup')
+```
+
 [docker-service-discovery]: https://github.com/erikdewildt/docker-service-discovery

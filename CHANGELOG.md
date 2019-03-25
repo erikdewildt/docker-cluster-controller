@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.8 - 2019-03-25
+
+* Feature: Simple file system locking
 
 ## 0.1.7 - 2019-03-12
 
