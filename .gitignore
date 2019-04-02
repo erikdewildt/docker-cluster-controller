@@ -2,5 +2,7 @@
 /docker_cluster_controller.egg-info
 /dist
 /build
+/backup
 __pycache__
 .DS_Store
+set_env.sh

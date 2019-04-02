@@ -15,6 +15,7 @@ from time import sleep, time
 
 import sys
 
+from clustercontroller.backup import run_backup
 from clustercontroller.clustercontroller import ClusterController, start_process, run_system_process, \
     start_cluster_controller, monitor_processes, render_config, create_logger
 
@@ -39,6 +40,9 @@ class MyAppController(ClusterController):
         # Schedule time based jobs
         self.schedule.every(1).hour.do(self.run_every_hour)
         variables = dict(os.environ)
+
+        self.filesystem_locks= ('backup', )
+
         try:
             render_config(template_file='myapp.conf.j2', config_file='/etc/myapp/myapp.conf', variables=variables)
             render_config(template_file='aaa_init.xml', config_file='/var/opt/myapp/aaa_init.xml',
@@ -70,7 +74,7 @@ class MyAppController(ClusterController):
         """Called when members where removed from the cluster."""
         self.logger.info(f'MyAppController removed members: {removed_members}')
 
-    def terminate_controller(self):
+    def terminate_controller(self, exitcode=0):
         """Called when the instance is being terminated."""
         self.logger.info('MyAppController was terminated')
         super().terminate_controller()
@@ -82,7 +86,8 @@ class MyAppController(ClusterController):
     def run_every_hour(self):
         """Run every hour."""
         self.logger.info('MyAppController hourly job started')
-        start_process(command=['/opt/myapp/current/bin/myapp-backup', '--non-interactive'], name='backup_myapp')
+        timestamp = int(round(time() * 1000))
+        run_backup(name='myapp_backup', command=['bash', '-c', f'sleep 60 && touch "backup/backup_{timestamp}.tar.gz"'])
 
 
 if __name__ == '__main__':
@@ -94,6 +99,8 @@ if __name__ == '__main__':
 
     command = ['/opt/myapp/current/bin/myapp', '--foreground', '--cd', '/var/opt/myapp', '--heart',
                '-c', '/etc/myapp/myapp.conf', '--with-package-reload']
+
+    command = ['tail', '-f', '/var/log/system.log', '>2']
 
 
     # Initialise the global processes list used to monitor active processes.
@@ -150,7 +157,8 @@ if __name__ == '__main__':
 
         if not timeout_reached:
             # Start the NCS process
-            process = start_process(command=command, name='myapp', terminate_event=terminate_event)
+            process = start_process(command=command, name='myapp', terminate_event=terminate_event,
+                                    suppress_log_regexp=str(os.environ.get('SUPPRESS_LOG_REGEXP')).encode('utf-8'))
             processes.append((process, process.name))
 
     # Monitor processes, this will cause the container to stay active until one of the processes stops.
