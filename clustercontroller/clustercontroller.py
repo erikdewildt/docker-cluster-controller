@@ -782,7 +782,7 @@ class ClusterController:
                 lock_timestamp = int(lock_content.split(':')[1])
 
                 if lock_container == self.container and lock_timestamp + 10000 <= current_timestamp or \
-                        lock_content != self.container and lock_timestamp + 30000 < current_timestamp:
+                        lock_container != self.container and lock_timestamp + 30000 < current_timestamp:
                     write_new_lockfile = True
         else:
             write_new_lockfile = True
