@@ -787,7 +787,7 @@ class ClusterController:
                 lockfile.write(lock_content)
                 self.logger.debug(f'Wrote lockfile {lockfile_path}')
 
-        if lock_container == self.container:
+        if lock_container == self.container or write_new_lockfile:
             return True
         else:
             return False

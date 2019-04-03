@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9 - 2019-04-3
+
+* Bug: get_filesystem_lock didn't return True when no lock file existed 
+
 ## 0.1.8 - 2019-03-25
 
 * Feature: Simple file system locking
