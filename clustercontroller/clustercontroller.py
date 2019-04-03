@@ -478,6 +478,12 @@ class ClusterController:
             except etcd.EtcdException:
                 pass
 
+            # Handle removal of filesystem locks
+            if self.filesystem_locks:
+                for folder in self.filesystem_locks:
+                    lockfile_path = Path(str(folder).rstrip('/') + '/lock')
+                    os.remove(lockfile_path)
+
             self.terminate_schedule_event.set()
             self.terminate_run_event.set()
             self.terminate_event.set()
