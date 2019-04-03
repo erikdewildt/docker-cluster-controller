@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10 - 2019-04-3
+
+* Feature: Remove lockfile when cluster controller exits
+
 ## 0.1.9 - 2019-04-3
 
 * Bug: get_filesystem_lock didn't return True when no lock file existed 
