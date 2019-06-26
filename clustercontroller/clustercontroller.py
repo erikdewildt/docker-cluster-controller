@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 from time import sleep, time
 
+from func_timeout import func_timeout, FunctionTimedOut
 from raven import Client
 from raven.handlers.logging import SentryHandler
 
@@ -241,7 +242,13 @@ class ClusterController:
     # Environment settings
     environment = os.environ.get('ENVIRONMENT')
     service = os.environ.get('SERVICE')
-    etcd_host = os.environ.get('ETCD_HOST')
+
+    if os.environ.get('ETCD_HOSTS') is not None:
+        if ',' in os.environ.get('ETCD_HOSTS'):
+            etcd_hosts = os.environ.get('ETCD_HOSTS').split(',')
+        else:
+            etcd_hosts = list(os.environ.get('ETCD_HOSTS'))
+
     etcd_port = os.environ.get('ETCD_PORT')
 
     try:
@@ -300,8 +307,8 @@ class ClusterController:
                 self.logger.error(f'ETCD Port should be a valid integer value.', extra={'stack': True, })
                 self.state = 'stopping'
 
-        if not isinstance(self.etcd_host, str) or not isinstance(self.etcd_port, int):
-            self.logger.error(f'No valid ETCD host and/or port specified: {self.etcd_host}:{self.etcd_port}',
+        if not isinstance(self.etcd_hosts, list) or not isinstance(self.etcd_port, int):
+            self.logger.error(f'No valid ETCD hosts and/or port specified: {self.etcd_hosts}:{self.etcd_port}',
                               extra={'stack': True, })
             self.state = 'stopping'
 
@@ -316,19 +323,25 @@ class ClusterController:
         connected = False
 
         timeout = time() + 30
-        attempt = 0
-        while not connected and time() < timeout:
-            attempt += 1
-            self.logger.info(f'Trying to connect to ETCD, attempt: {attempt}', extra={'stack': True, })
-            try:
-                self.etcd_client = etcd.Client(host=self.etcd_host, port=int(self.etcd_port), allow_reconnect=True)
-                machines = self.etcd_client.machines
-                if len(machines) >= 1:
-                    connected = True
-                    self.logger.info(f'Connected to ETCD machines: {machines}', extra={'stack': True, })
-            except etcd.EtcdException as error:
-                self.logger.info(f'Unable to connect to ETCD: {error}', extra={'stack': True, })
-            sleep(1)
+
+        while time() < timeout and not connected:
+            for host in self.etcd_hosts:
+                self.logger.info(f'Trying to connect to ETCD host {host}', extra={'stack': True, })
+                try:
+                    self.etcd_client = func_timeout(5, etcd.Client, args=(), kwargs={'host': host,
+                                                                                     'port': int(self.etcd_port),
+                                                                                     'allow_reconnect': True})
+                    machines = self.etcd_client.machines
+                    if len(machines) >= 1:
+                        connected = True
+                        self.logger.info(f'Connected to ETCD machines: {machines}', extra={'stack': True, })
+                        break
+                except FunctionTimedOut as error:
+                    self.logger.info(f'Timeout while connecting to ETCD host {host}', extra={'stack': True, })
+                except etcd.EtcdException as error:
+                    self.logger.info(f'Unable to connect to ETCD: {error}', extra={'stack': True, })
+                sleep(1)
+
 
         if not connected:
             self.logger.warning(f'Unable to connect to ETCD, giving up...', extra={'stack': True, })

@@ -41,7 +41,7 @@ pip install docker-cluster-controller
 
 |Environment Variable |Description |
 |---------------------|------------|
-|ETCD_HOST |The hostname of the ETCD node |
+|ETCD_HOSTS |The hostnames of the ETCD node (comma seperated) |
 |ETCD_PORT |The port of the ETCD node |
 |PORTS_WHEN_ACTIVE | The port(s) when de service has become active (e.g. 80,443,8443)
 |ENVIRONMENT: | A single ETCD node can be used for multimple environments, therefore the environment has to be specified. E.g. development'|
