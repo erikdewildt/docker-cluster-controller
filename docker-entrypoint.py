@@ -41,7 +41,7 @@ class MyAppController(ClusterController):
         self.schedule.every(1).hour.do(self.run_every_hour)
         variables = dict(os.environ)
 
-        self.filesystem_locks= ('backup', )
+        self.filesystem_locks= ('backups', )
 
         try:
             render_config(template_file='myapp.conf.j2', config_file='/etc/myapp/myapp.conf', variables=variables)

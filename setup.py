@@ -9,7 +9,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='docker-cluster-controller',
-    version='0.1.9',
+    version='0.1.12',
     author='erik.de.wildt',
     author_email='erik.de.wildt@gmail.com',
     description="A simple Python class to orchestrate cluster nodes within a docker environment.",
@@ -32,5 +32,6 @@ setup(
         'python-etcd==0.4.5',
         'schedule==0.6.0',
         'raven==6.10.0',
+        'func-timeout==4.3.3',
     ],
 )
