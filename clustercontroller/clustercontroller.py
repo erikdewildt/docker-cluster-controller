@@ -248,6 +248,8 @@ class ClusterController:
             etcd_hosts = os.environ.get('ETCD_HOSTS').split(',')
         else:
             etcd_hosts = list(os.environ.get('ETCD_HOSTS'))
+    else:
+        etcd_hosts = None
 
     etcd_port = os.environ.get('ETCD_PORT')
 

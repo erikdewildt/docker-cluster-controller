@@ -1,11 +1,14 @@
 # Changelog
 
-
-## 0.1.12 - 2019-04-3
+## 0.1.13 - 2019-06-27
 
 * Bugfix
 
-## 0.1.11 - 2019-04-3
+## 0.1.12 - 2019-06-26
+
+* Bugfix
+
+## 0.1.11 - 2019-06-26
 
 * Feature: Changed ETCD_HOST to ETCD_HOSTS which now allows for a list of ETCD servers to be specified (comma seperated)
 
