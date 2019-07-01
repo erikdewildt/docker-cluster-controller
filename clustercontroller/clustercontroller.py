@@ -247,7 +247,7 @@ class ClusterController:
         if ',' in os.environ.get('ETCD_HOSTS'):
             etcd_hosts = os.environ.get('ETCD_HOSTS').split(',')
         else:
-            etcd_hosts = list(os.environ.get('ETCD_HOSTS'))
+            etcd_hosts = [os.environ.get('ETCD_HOSTS')]
     else:
         etcd_hosts = None
 
