@@ -64,7 +64,7 @@ class Backup:
             self.weeks_to_keep = int(os.environ.get('BACKUP_WEEKS_TO_KEEP'))
             self.months_to_keep = int(os.environ.get('BACKUP_MONTHS_TO_KEEP'))
             self.destination_folder = os.environ.get('BACKUP_DESTINATION_FOLDER')
-        except AttributeError:
+        except (AttributeError, TypeError):
             self.logger.error(f'Error, please verify that all settings have been correctly set.')
 
     #
