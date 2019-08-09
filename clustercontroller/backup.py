@@ -33,8 +33,6 @@ class Backup:
         """Initialise the Backup class."""
         self.logger = create_logger(name='backup')
         self.parse_settings()
-        timestamp = self.now.strftime('%Y-%m-%d %H:%M:%S')
-        self.logger.info(f'Backup started at: {timestamp}')
 
         if not self.destination_folder:
             self.logger.error('Destination folder is not set. Please check settings.')
@@ -119,6 +117,13 @@ class Backup:
     #
     def create_backup(self):
         """Do the actual backup."""
+
+        # Update the current timestamp
+        self.now = datetime.now()
+
+        # Log
+        timestamp = self.now.strftime('%Y-%m-%d %H:%M:%S')
+        self.logger.info(f'Backup started at: {timestamp}')
 
         # Rotate old backup files
         latest_file = self.get_latest_file(destination=f'{self.destination_folder}')

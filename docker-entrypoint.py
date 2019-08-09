@@ -15,7 +15,7 @@ from time import sleep, time
 
 import sys
 
-from clustercontroller.backup import run_backup
+from clustercontroller.backup import run_backup, Backup
 from clustercontroller.clustercontroller import ClusterController, start_process, run_system_process, \
     start_cluster_controller, monitor_processes, render_config, create_logger
 
@@ -38,7 +38,7 @@ class MyAppController(ClusterController):
         """Called when the controller is started."""
         self.logger.info('MyAppController Started')
         # Schedule time based jobs
-        self.schedule.every(1).hour.do(self.run_every_hour)
+        self.schedule.every(1).minute.do(self.run_every_hour)
         variables = dict(os.environ)
 
         self.filesystem_locks= ('backups', )
@@ -87,7 +87,8 @@ class MyAppController(ClusterController):
         """Run every hour."""
         self.logger.info('MyAppController hourly job started')
         timestamp = int(round(time() * 1000))
-        run_backup(name='myapp_backup', command=['bash', '-c', f'sleep 60 && touch "backup/backup_{timestamp}.tar.gz"'])
+        # run_backup(name='myapp_backup', command=['bash', '-c', f'sleep 60 && touch "backup/backup_{timestamp}.tar.gz"'])
+        run_backup(name='myapp_backup', command=['echo', 'foemp', '>', f'/Projects/docker-cluster-controller/backups/backup_{timestamp}.tar.gz'])
 
 
 if __name__ == '__main__':
