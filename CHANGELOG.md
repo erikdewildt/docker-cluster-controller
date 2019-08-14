@@ -1,5 +1,10 @@
 # Changelog
 
+
+## 0.1.17 - 2019-08-13
+
+* Bugfix: Reconnect to ETCd on connection failure
+
 ## 0.1.16 - 2019-08-09
 
 * Bugfix in backup

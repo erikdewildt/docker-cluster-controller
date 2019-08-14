@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import uuid
+import random
 from pathlib import Path
 from time import sleep, time
 
@@ -321,29 +322,7 @@ class ClusterController:
         if self.state == 'stopping':
             self.terminate_controller(exitcode=0)
 
-        # Connect to ETCD
-        connected = False
-
-        timeout = time() + 30
-
-        while time() < timeout and not connected:
-            for host in self.etcd_hosts:
-                self.logger.info(f'Trying to connect to ETCD host {host}', extra={'stack': True, })
-                try:
-                    self.etcd_client = func_timeout(5, etcd.Client, args=(), kwargs={'host': host,
-                                                                                     'port': int(self.etcd_port),
-                                                                                     'allow_reconnect': True})
-                    machines = self.etcd_client.machines
-                    if len(machines) >= 1:
-                        connected = True
-                        self.logger.info(f'Connected to ETCD machines: {machines}', extra={'stack': True, })
-                        break
-                except FunctionTimedOut as error:
-                    self.logger.info(f'Timeout while connecting to ETCD host {host}', extra={'stack': True, })
-                except etcd.EtcdException as error:
-                    self.logger.info(f'Unable to connect to ETCD: {error}', extra={'stack': True, })
-                sleep(1)
-
+        connected = self.connect_to_etcd()
 
         if not connected:
             self.logger.warning(f'Unable to connect to ETCD, giving up...', extra={'stack': True, })
@@ -391,6 +370,35 @@ class ClusterController:
                 self.check_active(ports=self.ports)
                 sleep(1)
 
+    def connect_to_etcd(self):
+         # Connect to ETCD
+        connected = False
+
+        timeout = time() + 30
+
+        # Randominse etcd host order
+        random.shuffle(self.etcd_hosts)
+
+        while time() < timeout and not connected:
+            for host in self.etcd_hosts:
+                self.logger.info(f'Trying to connect to ETCD host {host}', extra={'stack': True, })
+                try:
+                    self.etcd_client = func_timeout(5, etcd.Client, args=(), kwargs={'host': host,
+                                                                                     'port': int(self.etcd_port),
+                                                                                     'allow_reconnect': True})
+                    machines = self.etcd_client.machines
+                    if len(machines) >= 1:
+                        connected = True
+                        self.logger.info(f'Connected to ETCD machines: {machines}', extra={'stack': True, })
+                        break
+                except FunctionTimedOut as error:
+                    self.logger.info(f'Timeout while connecting to ETCD host {host}', extra={'stack': True, })
+                except etcd.EtcdException as error:
+                    self.logger.info(f'Unable to connect to ETCD: {error}', extra={'stack': True, })
+                sleep(1)
+
+        return connected
+
     def run_schedule_continously(self, schedule=None, interval=1):
 
         terminate_schedule_event = threading.Event()
@@ -431,7 +439,11 @@ class ClusterController:
 
                         while not refreshed and time() < timeout:
                             refreshed = self.refresh_role()
-                            sleep(1)
+                            if not refreshed:
+                                connected = self.connect_to_etcd()
+                                sleep(1)
+                                if connected:
+                                    refreshed = self.refresh_role()
 
                         if not refreshed:
                             self.state = 'stopping'
@@ -466,7 +478,7 @@ class ClusterController:
                         self.terminate_controller(exitcode=0)
                         sys.exit(0)
 
-                    sleep(1)
+                    sleep(5)
 
         continuous_thread = RunThread()
         continuous_thread.start()
@@ -575,25 +587,25 @@ class ClusterController:
         etcd_connection_failed = False
 
         try:
-            self.etcd_client.refresh(self.member_state_key, ttl=10)
+            self.etcd_client.refresh(self.member_state_key, ttl=15)
         except etcd.EtcdKeyNotFound:
-            self.etcd_client.write(self.member_state_key, self.state, ttl=10)
+            self.etcd_client.write(self.member_state_key, self.state, ttl=15)
         except etcd.EtcdConnectionFailed:
             etcd_connection_failed = True
             self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         try:
-            self.etcd_client.refresh(self.member_role_key, ttl=10)
+            self.etcd_client.refresh(self.member_role_key, ttl=15)
         except etcd.EtcdKeyNotFound:
-            self.etcd_client.write(self.member_role_key, self.role, ttl=10)
+            self.etcd_client.write(self.member_role_key, self.role, ttl=15)
         except etcd.EtcdConnectionFailed:
             etcd_connection_failed = True
             self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
         try:
-            self.etcd_client.refresh(self.member_container_key, ttl=10)
+            self.etcd_client.refresh(self.member_container_key, ttl=15)
         except etcd.EtcdKeyNotFound:
-            self.etcd_client.write(self.member_container_key, self.container, ttl=10)
+            self.etcd_client.write(self.member_container_key, self.container, ttl=15)
         except etcd.EtcdConnectionFailed:
             etcd_connection_failed = True
             self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
@@ -602,15 +614,15 @@ class ClusterController:
         if self.role == 'master':
             # If we are master, just refresh the master lock and key
             try:
-                self.master_lock.acquire(blocking=False, lock_ttl=10)
+                self.master_lock.acquire(blocking=False, lock_ttl=15)
             except etcd.EtcdConnectionFailed:
                 etcd_connection_failed = True
                 self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
 
             try:
-                self.etcd_client.refresh(self.master_key, ttl=10)
+                self.etcd_client.refresh(self.master_key, ttl=15)
             except etcd.EtcdKeyNotFound:
-                self.etcd_client.write(self.master_key, self.container, ttl=10)
+                self.etcd_client.write(self.master_key, self.container, ttl=15)
             except etcd.EtcdConnectionFailed:
                 etcd_connection_failed = True
                 self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
