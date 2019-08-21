@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.19 - 2019-08-20
+
+* Bugfix: Remove empty member dirs
+
+## 0.1.18 - 2019-08-13
+
+* Feature: Randomise the used ETCD host
 
 ## 0.1.17 - 2019-08-13
 

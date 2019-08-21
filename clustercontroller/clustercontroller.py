@@ -251,7 +251,6 @@ class ClusterController:
             etcd_hosts = [os.environ.get('ETCD_HOSTS')]
     else:
         etcd_hosts = None
-
     etcd_port = os.environ.get('ETCD_PORT')
 
     try:
@@ -691,6 +690,7 @@ class ClusterController:
                         except etcd.EtcdKeyNotFound as error:
                             self.logger.debug(f'Member dir found with no state key: {error}',
                                               extra={'stack': True, })
+                            self.etcd_client.delete(members_dir + instance, recursive=True)
                         except etcd.EtcdException:
                             self.logger.error('Connection to ETCD failed.', extra={'stack': True, })
                     else:
@@ -709,11 +709,12 @@ class ClusterController:
         """
         container = None
         try:
-            member_key = f"/{environment}/{service}/members/{instance_id}/container/"
+            member_key = f"/{environment}/{service}/members/{instance_id}/container"
             container = self.etcd_client.get(member_key).value
 
         except etcd.EtcdKeyNotFound as error:
             self.logger.info(f"Key can't be found {error}", extra={'stack': True, })
+            return None
 
         return container
 
