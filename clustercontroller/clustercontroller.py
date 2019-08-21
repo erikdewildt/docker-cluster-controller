@@ -669,7 +669,7 @@ class ClusterController:
         if directory:
             for result in directory.children:
                 instance = str(result.key).split('/')[-1]
-                if instance != self.instance_id:
+                if instance != self.instance_id and instance != 'members':
                     if state is not None:
                         try:
 

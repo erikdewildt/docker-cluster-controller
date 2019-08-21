@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.20 - 2019-08-21
+
+* Bugfix
+
 ## 0.1.19 - 2019-08-20
 
 * Bugfix: Remove empty member dirs
