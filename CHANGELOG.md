@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.21 - 2019-08-21
+
+* Set proper Sentry Environment
+
 ## 0.1.20 - 2019-08-21
 
 * Bugfix

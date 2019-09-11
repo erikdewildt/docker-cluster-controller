@@ -46,6 +46,8 @@ def create_logger(name=None, logger=None):
     logger.addHandler(log_console)
 
     # Integrate Sentry logging
+    os.environ['SENTRY_ENVIRONMENT'] = os.environ.get('ENVIRONMENT', 'undefined')
+
     if os.environ.get('SENTRY_DSN'):
         client = Client(os.environ.get('SENTRY_DSN'))
         sentry_handler = SentryHandler(client)
