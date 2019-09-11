@@ -13,9 +13,9 @@ import random
 from pathlib import Path
 from time import sleep, time
 
+import sentry_sdk
 from func_timeout import func_timeout, FunctionTimedOut
-from raven import Client
-from raven.handlers.logging import SentryHandler
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 try:
     import etcd
@@ -49,10 +49,14 @@ def create_logger(name=None, logger=None):
     os.environ['SENTRY_ENVIRONMENT'] = os.environ.get('ENVIRONMENT', 'undefined')
 
     if os.environ.get('SENTRY_DSN'):
-        client = Client(os.environ.get('SENTRY_DSN'))
-        sentry_handler = SentryHandler(client)
-        sentry_handler.setLevel(logging.WARNING)
-        logger.addHandler(sentry_handler)
+        sentry_logging = LoggingIntegration(
+            level=logging.DEBUG,  # Capture debug and above as breadcrumbs
+            event_level=logging.WARNING  # Send warning and above as events
+        )
+        sentry_sdk.init(
+            dsn=os.environ.get('SENTRY_DSN'),
+            integrations=[sentry_logging]
+        )
 
     return logger
 

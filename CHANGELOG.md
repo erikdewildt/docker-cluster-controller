@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.22 - 2019-08-21
+
+* Migrate Sentry Raven client to Sentry-SDK
+
 ## 0.1.21 - 2019-08-21
 
 * Set proper Sentry Environment
