@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.24 - 2019-10-09
+
+* Make deps have a minimum version number
+
 ## 0.1.23 - 2019-09-14
 
 * Migrate Sentry Raven client to Sentry-SDK
