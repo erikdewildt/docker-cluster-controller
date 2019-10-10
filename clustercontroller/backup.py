@@ -39,7 +39,7 @@ class Backup:
 
         self.create_destination_folder(destination_folder=f'{self.destination_folder}')
 
-    def run(self, name=None, command=None):
+    def run(self, name=None, command=None, rename=True):
 
         if not name:
             self.logger.error('Name not specified.')
@@ -52,7 +52,7 @@ class Backup:
             self.command = command
 
         if self.name and self.command and self.destination_folder:
-            self.create_backup()
+            self.create_backup(rename=rename)
 
     def parse_settings(self):
         """Parse environment settings."""
@@ -115,7 +115,7 @@ class Backup:
     #
     # Create backup
     #
-    def create_backup(self):
+    def create_backup(self, rename):
         """Do the actual backup."""
 
         # Update the current timestamp
@@ -136,11 +136,12 @@ class Backup:
         self.logger.info(subprocess.run(self.command, stdout=subprocess.PIPE).stdout.decode('utf-8'))
 
         # Rename the latest file in the destination folder to 'latest' while preserving the extension.
-        latest_file = self.get_latest_file(destination=f'{self.destination_folder}')
+        if rename:
+            latest_file = self.get_latest_file(destination=f'{self.destination_folder}')
 
-        if latest_file and 'latest' not in str(latest_file):
-            extension = latest_file.split('.', 1)[1]
-            move(f'{latest_file}', f'{self.destination_folder}/latest.{extension}')
+            if latest_file and 'latest' not in str(latest_file):
+                extension = latest_file.split('.', 1)[1]
+                move(f'{latest_file}', f'{self.destination_folder}/latest.{extension}')
 
         # Finish backup
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -188,5 +189,5 @@ class Backup:
 backup = Backup()
 
 
-def run_backup(name=None, command=None):
-    backup.run(name=name, command=command)
+def run_backup(name=None, command=None, rename=True):
+    backup.run(name=name, command=command, rename=rename)

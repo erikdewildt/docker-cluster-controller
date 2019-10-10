@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.25 - 2019-10-10
+
+* Make rename of backup optional
+
 ## 0.1.24 - 2019-10-09
 
 * Make deps have a minimum version number
