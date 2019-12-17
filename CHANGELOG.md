@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.26 - 2019-12-17
+
+* Use a trusted root bundle for Sentry integration when 'TRUSTED_ROOT_BUNDLE' environment variable is specified.
+
 ## 0.1.25 - 2019-10-10
 
 * Make rename of backup optional

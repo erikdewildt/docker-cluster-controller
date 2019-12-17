@@ -55,7 +55,8 @@ def create_logger(name=None, logger=None):
         )
         sentry_sdk.init(
             dsn=os.environ.get('SENTRY_DSN'),
-            integrations=[sentry_logging]
+            integrations=[sentry_logging],
+            ca_certs=os.environ.get('TRUSTED_ROOT_BUNDLE')
         )
 
     return logger
