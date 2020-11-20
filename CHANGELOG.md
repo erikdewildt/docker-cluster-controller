@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.27 - 2020-11-20
+
+* Add a rename parameter using a regexp tuple.
+
 ## 0.1.26 - 2019-12-17
 
 * Use a trusted root bundle for Sentry integration when 'TRUSTED_ROOT_BUNDLE' environment variable is specified.
