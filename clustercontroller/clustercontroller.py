@@ -204,7 +204,7 @@ def monitor_processes(processes=None, terminate_event=None):
     logger = create_logger(name='multiprocessing', logger=multiprocessing.get_logger())
 
     # Monitor processes
-    while len(processes):
+    while processes:
         sleep(1)
         for item in processes:
             # For each process check if the process is still active.
@@ -221,8 +221,6 @@ def monitor_processes(processes=None, terminate_event=None):
 
                 # When a single process is terminated then terminate all other processes as well.
                 terminate_all_processes(processes=processes, terminate_event=terminate_event, logger=logger)
-
-
 
 
 class ClusterController:
@@ -313,7 +311,7 @@ class ClusterController:
             try:
                 self.etcd_port = int(self.etcd_port)
             except ValueError:
-                self.logger.error(f'ETCD Port should be a valid integer value.', extra={'stack': True, })
+                self.logger.error('ETCD Port should be a valid integer value.', extra={'stack': True, })
                 self.state = 'stopping'
 
         if not isinstance(self.etcd_hosts, list) or not isinstance(self.etcd_port, int):
@@ -331,7 +329,7 @@ class ClusterController:
         connected = self.connect_to_etcd()
 
         if not connected:
-            self.logger.warning(f'Unable to connect to ETCD, giving up...', extra={'stack': True, })
+            self.logger.warning('Unable to connect to ETCD, giving up...', extra={'stack': True, })
             self.state = 'stopping'
             self.terminate_controller(exitcode=1)
         else:
@@ -377,7 +375,7 @@ class ClusterController:
                 sleep(1)
 
     def connect_to_etcd(self):
-         # Connect to ETCD
+        # Connect to ETCD
         connected = False
 
         timeout = time() + 30
